@@ -1,15 +1,41 @@
-﻿import numpy as np
+import numpy as np
 import pandas as pd
 import yfinance as yf
 from sklearn.preprocessing import StandardScaler
 
 
 def charger_donnees(symbole, debut, fin):
-    """Télécharge les données OHLCV depuis Yahoo Finance."""
+    """Télécharge les données OHLCV journalières depuis Yahoo Finance."""
     df = yf.download(symbole, start=debut, end=fin, auto_adjust=True)
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
     df = df.dropna()
+    return df
+
+
+def charger_donnees_8h(symbole="BTCUSDT", debut="2018-01-01", fin="2026-11-01"):
+    """Télécharge les bougies de 8h depuis Binance (3 lignes par jour)."""
+    import requests, time
+    url = "https://api.binance.com/api/v3/klines"
+    t = int(pd.Timestamp(debut, tz="UTC").timestamp() * 1000)
+    t_fin = int(pd.Timestamp(fin, tz="UTC").timestamp() * 1000)
+    lignes = []
+    while t < t_fin:
+        r = requests.get(url, params={"symbol": symbole, "interval": "8h",
+                                      "startTime": t, "endTime": t_fin,
+                                      "limit": 1000}, timeout=30)
+        r.raise_for_status()
+        data = r.json()
+        if not data:
+            break
+        lignes += data
+        t = data[-1][0] + 1
+        time.sleep(0.2)
+    df = pd.DataFrame(lignes, columns=[
+        "Date", "Open", "High", "Low", "Close", "Volume", "close_time",
+        "quote_volume", "trades", "taker_base", "taker_quote", "ignore"])
+    df["Date"] = pd.to_datetime(df["Date"], unit="ms")
+    df = df.set_index("Date")[["Close", "High", "Low", "Open", "Volume"]].astype(float)
     return df
 
 
@@ -51,3 +77,29 @@ def standardiser(X):
     scaler = StandardScaler()
     X_std = scaler.fit_transform(X)
     return X_std, scaler
+
+
+def charger_binance(symbole="BTCUSDT", intervalle="8h", debut="2017-08-17", fin="2026-11-01"):
+    """Télécharge des bougies Binance (1h, 4h, 8h, 1d...) avec pagination."""
+    import requests, time
+    url = "https://api.binance.com/api/v3/klines"
+    t = int(pd.Timestamp(debut, tz="UTC").timestamp() * 1000)
+    t_fin = int(pd.Timestamp(fin, tz="UTC").timestamp() * 1000)
+    lignes = []
+    while t < t_fin:
+        r = requests.get(url, params={"symbol": symbole, "interval": intervalle,
+                                      "startTime": t, "endTime": t_fin,
+                                      "limit": 1000}, timeout=30)
+        r.raise_for_status()
+        data = r.json()
+        if not data:
+            break
+        lignes += data
+        t = data[-1][0] + 1
+        time.sleep(0.2)
+    df = pd.DataFrame(lignes, columns=[
+        "Date", "Open", "High", "Low", "Close", "Volume", "close_time",
+        "quote_volume", "trades", "taker_base", "taker_quote", "ignore"])
+    df["Date"] = pd.to_datetime(df["Date"], unit="ms")
+    df = df.set_index("Date")[["Close", "High", "Low", "Open", "Volume"]].astype(float)
+    return df
