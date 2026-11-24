@@ -1,26 +1,21 @@
+"""Fonctions utilitaires du projet : données Bitcoin (bougies de 8 h), indicateurs, features."""
 import numpy as np
 import pandas as pd
-import yfinance as yf
 from sklearn.preprocessing import StandardScaler
 
-
-# ---------------------------------------------------------------- DATA LOADING
-def charger_donnees(symbole, debut, fin):
-    """Daily OHLCV from Yahoo Finance (used as a control source)."""
-    df = yf.download(symbole, start=debut, end=fin, auto_adjust=True)
-    if isinstance(df.columns, pd.MultiIndex):
-        df.columns = df.columns.get_level_values(0)
-    return df.dropna()
+PAR_JOUR = 3  # bougies de 8 h : 00h, 08h, 16h UTC -> 1 jour = 3 lignes
 
 
+# ---------------------------------------------------------------- DONNÉES
 def charger_binance(symbole="BTCUSDT", intervalle="8h", debut="2017-08-17", fin="2026-11-01"):
-    """Binance candles (1h, 4h, 8h, 1d...) with pagination (1000 candles per request)."""
+    """Bougies Binance (API publique /api/v3/klines), pagination par 1000 bougies.
+    Période [debut, fin[ : la bougie qui commence exactement à `fin` est exclue. Heures en UTC."""
     import requests, time
     url = "https://api.binance.com/api/v3/klines"
     t = int(pd.Timestamp(debut, tz="UTC").timestamp() * 1000)
-    t_fin = int(pd.Timestamp(fin, tz="UTC").timestamp() * 1000)
+    t_fin = int(pd.Timestamp(fin, tz="UTC").timestamp() * 1000) - 1   # endTime est inclusif chez Binance
     lignes = []
-    while t < t_fin:
+    while t <= t_fin:
         r = requests.get(url, params={"symbol": symbole, "interval": intervalle,
                                       "startTime": t, "endTime": t_fin,
                                       "limit": 1000}, timeout=30)
@@ -38,24 +33,29 @@ def charger_binance(symbole="BTCUSDT", intervalle="8h", debut="2017-08-17", fin=
     return df.set_index("Date")[["Close", "High", "Low", "Open", "Volume"]].astype(float)
 
 
-def charger_donnees_8h(symbole="BTCUSDT", debut="2018-01-01", fin="2026-11-01"):
-    """Kept for compatibility: 8h candles = 3 rows per day."""
-    return charger_binance(symbole, "8h", debut, fin)
+def garder_jours_complets(df, par_jour=PAR_JOUR):
+    """Garde uniquement les jours qui ont exactement `par_jour` bougies (1 jour = 3 lignes).
+    Supprime les jours tronqués (panne de l'exchange, dernier jour incomplet)."""
+    df = df.sort_index()
+    df = df[~df.index.duplicated(keep="first")]
+    jour = df.index.normalize()
+    taille = pd.Series(jour, index=df.index).map(pd.Series(jour).value_counts())
+    return df[taille.values == par_jour]
 
 
-# ---------------------------------------------------------------- INDICATORS
+# ---------------------------------------------------------------- INDICATEURS
 def calculer_rendement_log(prix):
-    """Log-return: r_t = ln(P_t / P_{t-1})."""
+    """Rendement log : r_t = ln(P_t / P_{t-1})."""
     return np.log(prix / prix.shift(1))
 
 
 def calculer_volatilite(rendements, fenetre=20):
-    """Rolling standard deviation of the returns."""
+    """Écart-type glissant des rendements."""
     return rendements.rolling(window=fenetre).std()
 
 
 def calculer_RSI(prix, periode=14):
-    """RSI between 0 and 100."""
+    """RSI entre 0 et 100 (moyenne exponentielle de Wilder)."""
     variation = prix.diff()
     gain = variation.clip(lower=0)
     perte = -variation.clip(upper=0)
@@ -65,22 +65,22 @@ def calculer_RSI(prix, periode=14):
 
 
 def calculer_MACD(prix, court=12, long=26, signal=9):
-    """MACD = EMA(court) - EMA(long); signal line = EMA(signal) of the MACD."""
+    """MACD = EMA(court) - EMA(long) ; ligne de signal = EMA(signal) du MACD."""
     macd = prix.ewm(span=court, adjust=False).mean() - prix.ewm(span=long, adjust=False).mean()
     ligne_signal = macd.ewm(span=signal, adjust=False).mean()
     return macd, ligne_signal, macd - ligne_signal
 
 
 def standardiser(X):
-    """Mean 0, std 1 (returns the scaler so it can be reused on the test set)."""
+    """Moyenne 0, écart-type 1 (renvoie aussi le scaler pour le réutiliser sur le test)."""
     scaler = StandardScaler()
     return scaler.fit_transform(X), scaler
 
 
 # ---------------------------------------------------------------- FEATURES
 def construire_features(df, fen_vol=60, fen_rsi=42, macd_params=(36, 78, 27), fen_volume=20):
-    """All features from an OHLCV DataFrame. Defaults are for 8h candles (3 per day).
-    Every feature only uses PAST bars (no look-ahead)."""
+    """Toutes les features à partir d'un DataFrame OHLCV. Valeurs par défaut pour des bougies
+    de 8 h (fenêtres journalières x 3). Chaque feature n'utilise que les bougies PASSÉES."""
     f = pd.DataFrame(index=df.index)
     f["rendement"] = calculer_rendement_log(df["Close"])
     f["volatilite"] = calculer_volatilite(f["rendement"], fen_vol)
@@ -89,7 +89,7 @@ def construire_features(df, fen_vol=60, fen_rsi=42, macd_params=(36, 78, 27), fe
     f["MACD_norm"] = macd / df["Close"]
     f["histo_norm"] = histo / df["Close"]
     f["amplitude"] = (df["High"] - df["Low"]) / df["Close"]
-    # relative volume: compared with the same session (00h/08h/16h) over the last days, past only
+    # volume relatif : comparé à la même session (00h/08h/16h) sur les derniers jours, passé uniquement
     v_session = df["Volume"].groupby(df.index.hour).transform(
         lambda s: s.rolling(fen_volume).mean().shift(1))
     f["vol_rel"] = np.log(df["Volume"] / v_session).replace([np.inf, -np.inf], np.nan)

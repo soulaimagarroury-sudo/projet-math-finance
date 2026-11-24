@@ -1,11 +1,13 @@
-"""HMM jouet : 3 états cachés, 2 observations. Forward, Backward, Viterbi, Baum-Welch (itérations)."""
+"""HMM jouet : 3 états cachés, 2 observations. Forward, Backward, Viterbi, Baum-Welch (itérations).
+Mêmes paramètres que notebooks/02_algorithmes_hmm.ipynb. Résultats écrits dans results/hmm_exemple_3etats.json."""
 import numpy as np, json
+from pathlib import Path
 np.set_printoptions(precision=4, suppress=True)
 ETATS = ["Haussier", "Baissier", "Panique"]; OBS = ["Hausse", "Baisse"]
 pi = np.array([0.5, 0.3, 0.2])
-A = np.array([[0.7, 0.2, 0.1], [0.2, 0.6, 0.2], [0.3, 0.3, 0.4]])
+A = np.array([[0.80, 0.15, 0.05], [0.10, 0.80, 0.10], [0.20, 0.30, 0.50]])
 B = np.array([[0.8, 0.2], [0.2, 0.8], [0.5, 0.5]])
-O = np.array([0, 0, 1, 1, 0]); T = len(O); N = 3
+O = np.array([0, 0, 1, 1, 1, 0]); T = len(O); N = 3
 
 def forward(pi, A, B, O):
     al = np.zeros((len(O), N)); al[0] = pi * B[:, O[0]]
@@ -44,7 +46,10 @@ res["ll"] = ll; res["final"] = dict(pi=p_.tolist(), A=A_.tolist(), B=B_.tolist()
 # prédiction à court terme : P(S_{T+k}) = gamma_T . A^k
 res["pred"] = [(g[-1] @ np.linalg.matrix_power(A, k)).tolist() for k in (1, 2, 5)]
 print("pred", res["pred"])
-json.dump(res, open("res.json", "w"))
+sortie = Path(__file__).resolve().parent.parent / "results" / "hmm_exemple_3etats.json"
+sortie.parent.mkdir(exist_ok=True)
+with open(sortie, "w") as fh:
+    json.dump(res, fh)
 
 # --- Vérification avec hmmlearn ---
 from hmmlearn import hmm

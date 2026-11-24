@@ -1,11 +1,13 @@
 hmmlearn
 pandas
 numpy
+scipy
 scikit-learn
+statsmodels
 matplotlib
 seaborn
-yfinance
-statsmodels
+requests
+joblib
+jupyter
 streamlit
 vectorbt
-jupyter
