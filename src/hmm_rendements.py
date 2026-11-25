@@ -1,4 +1,4 @@
-"""Version script du notebook 03 : BTC 8 h -> GaussianHMM (choix de N par AIC/BIC) -> régimes -> prédiction.
+"""Version script du notebook 04 : BTC 8 h -> GaussianHMM (choix de N par AIC/BIC) -> régimes -> prédiction.
 Utilise les fichiers produits par notebooks/01_donnees.ipynb. À lancer depuis la racine du projet :
     python src/hmm_rendements.py
 """

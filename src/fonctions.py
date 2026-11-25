@@ -94,3 +94,32 @@ def construire_features(df, fen_vol=60, fen_rsi=42, macd_params=(36, 78, 27), fe
         lambda s: s.rolling(fen_volume).mean().shift(1))
     f["vol_rel"] = np.log(df["Volume"] / v_session).replace([np.inf, -np.inf], np.nan)
     return f
+
+
+# ---------------------------------------------------------------- FEATURE SELECTION
+def construire_candidates(df, feat, par_jour=PAR_JOUR):
+    """Variables explicatives candidates X_t, toutes connues à la clôture de la bougie t."""
+    r = feat["rendement"]
+    X = feat[["rendement", "volatilite", "RSI", "MACD_norm", "histo_norm", "amplitude", "vol_rel"]].copy()
+    X["rend_lag1"] = r.shift(1)                                         # rendement de la bougie précédente
+    X["rend_lag2"] = r.shift(2)
+    X["rend_1j"] = r.rolling(par_jour).sum()                            # rendement des dernières 24 h
+    X["rend_1sem"] = r.rolling(7 * par_jour).sum()                      # rendement des 7 derniers jours
+    X["vol_jour"] = np.sqrt((r ** 2).rolling(par_jour).mean())          # volatilité réalisée des dernières 24 h
+    X["vol_3j"] = r.rolling(3 * par_jour).std()                         # volatilité courte (3 jours)
+    X["session_08h"] = (df.index.hour == 8).astype(int)                 # effet de session (00h = référence)
+    X["session_16h"] = (df.index.hour == 16).astype(int)
+    X["log_close"] = np.log(df["Close"])                                # niveau de prix (utilisé pour la cible Close)
+    return X
+
+
+def construire_cibles(df, feat, par_jour=PAR_JOUR):
+    """Cibles Y à prédire, toutes au FUTUR (bougie t+1 ou journée suivante)."""
+    r = feat["rendement"]
+    Y = pd.DataFrame(index=feat.index)
+    Y["rendement"] = r.shift(-1)                                        # rendement de la bougie suivante
+    # volatilité réalisée de la journée suivante (bougies t+1, t+2, t+3)
+    Y["volatilite"] = np.sqrt((r ** 2).rolling(par_jour).mean()).shift(-par_jour)
+    Y["close"] = np.log(df["Close"]).shift(-1)                          # log du prix de clôture suivant
+    Y["MACD"] = feat["MACD_norm"].shift(-1)                             # MACD normalisé suivant
+    return Y

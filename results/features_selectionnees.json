@@ -1,0 +1,19 @@
+{
+  "rendement": [
+    "rend_lag2"
+  ],
+  "volatilite": [
+    "volatilite",
+    "vol_3j",
+    "amplitude"
+  ],
+  "close": [
+    "log_close"
+  ],
+  "MACD": [
+    "MACD_norm",
+    "RSI",
+    "histo_norm",
+    "rend_1sem"
+  ]
+}

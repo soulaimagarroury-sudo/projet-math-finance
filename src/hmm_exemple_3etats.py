@@ -1,5 +1,5 @@
 """HMM jouet : 3 états cachés, 2 observations. Forward, Backward, Viterbi, Baum-Welch (itérations).
-Mêmes paramètres que notebooks/02_algorithmes_hmm.ipynb. Résultats écrits dans results/hmm_exemple_3etats.json."""
+Mêmes paramètres que notebooks/03_algorithmes_hmm.ipynb. Résultats écrits dans results/hmm_exemple_3etats.json."""
 import numpy as np, json
 from pathlib import Path
 np.set_printoptions(precision=4, suppress=True)
