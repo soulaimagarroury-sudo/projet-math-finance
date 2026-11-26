@@ -17,6 +17,7 @@ Détection des régimes de marché du **Bitcoin (BTCUSDT)** avec des modèles de
 | `notebooks/02_selection_features.ipynb` | feature selection : variables qui influencent chaque cible (rendement, volatilité, prix, MACD), un modèle par cible |
 | `notebooks/03_algorithmes_hmm.ipynb` | Forward, Backward, Viterbi, Baum-Welch codés à la main sur un exemple, vérifiés avec `hmmlearn` |
 | `notebooks/04_hmm_rendements.ipynb` | GaussianHMM sur BTC (choix de N par AIC/BIC), interprétation, prédiction du prochain régime |
+| `notebooks/05_hmm_lstm.ipynb` | initialisation du HMM par un **LSTM** (au lieu du hasard) : le LSTM prévoit la volatilité, ses états cachés donnent 3 régimes, d'où π, A, μ, Σ ; puis Baum-Welch, comparaison avec 10 départs aléatoires, prédiction sans look-ahead |
 | `src/fonctions.py` | fonctions communes (données, indicateurs, features, variables candidates et cibles) |
 | `src/hmm_exemple_3etats.py`, `src/hmm_rendements.py` | versions script des notebooks 03 et 04 |
 | `data/` | `btcusdt_8h.csv` (brut) et fichiers produits par le notebook 01 |
@@ -29,4 +30,4 @@ venv\Scripts\activate          # Windows
 pip install -r requirements.txt
 jupyter lab
 ```
-Exécuter les notebooks dans l'ordre : `01` → `02` → `03` → `04`.
+Exécuter les notebooks dans l'ordre : `01` → `02` → `03` → `04` → `05`.
